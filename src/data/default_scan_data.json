@@ -1,0 +1,44 @@
+{
+    "companies":[
+        {"name":"volvo",
+            "sightings":[
+                {
+                    "date":"2017-10-01",
+                    "time":"00:00:00",
+                    "site":"DN ekonomi",
+                    "url":"https://www.dn.se/ekonomi/"
+                }
+            ]
+        },
+        {"name":"cloetta",
+            "sightings":[
+                {
+                    "date":"2017-10-01",
+                    "time":"00:00:00",
+                    "site":"DN ekonomi",
+                    "url":"https://www.dn.se/ekonomi/"
+                }
+            ]
+        }
+    ],
+    "sites":[
+        {
+            "name":"DN ekonomi",
+            "url":"https://www.dn.se/ekonomi/",
+            "last visited date":"2017-10-01",
+            "last visited time":"00:00:00"            
+        },
+        {
+            "name":"SvD näringsliv",
+            "url":"https://www.svd.se/naringsliv/",
+            "last visited date":"2017-10-01",
+            "last visited time":"00:00:00"
+        },
+        {
+            "name":"Affärsvärlden",
+            "url":"https://www.affarsvarlden.se/bors-ekonominyheter/",
+            "last visited date":"2017-10-01",
+            "last visited time":"00:00:00"
+        }
+    ]
+}
