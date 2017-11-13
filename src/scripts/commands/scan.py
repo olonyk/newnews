@@ -29,16 +29,21 @@ class Scan(Command):
         self.new_articles = 0
 
     def run(self):
-        print("Scan runing")
-        # Initialize the site readers
-        site_readers = []
-        for site in self.data["sites"]:
-            site_readers.append(SiteReader(args=self.args,
-                                           site_data=site,
-                                           settings=self.settings,
-                                           company_data=self.data["companies"]))
+        print("Scan running")
         # Main loop
         while self.settings["loop"]:
+            # Initialize the site readers
+            site_readers = []
+            for site in self.data["sites"]:
+                if site["name"] == "DN ekonomi":
+                    site_reader = SiteReader(args=self.args,
+                                            site_data=site,
+                                            settings=self.settings,
+                                            company_data=self.data["companies"])
+                    site_reader.start()
+                    site_readers.append(site_reader)
+            for site_reader in site_readers:
+                site_reader.join()
             self.print_state()
             self.iterations += 1
             time.sleep(self.settings["loop interval sec"])
