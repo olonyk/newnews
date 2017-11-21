@@ -1,4 +1,5 @@
 {
     "loop":true,
-    "search_depth":3
+    "loop interval sec":10,
+    "search depth":2
 }
