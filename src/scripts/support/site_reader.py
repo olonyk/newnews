@@ -1,3 +1,4 @@
+from datetime import datetime
 from multiprocessing import Process
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
@@ -7,12 +8,13 @@ from bs4 import BeautifulSoup, SoupStrainer
 from bs4.element import Comment
 
 import requests
+from readability import Document  # Requires readability-lxmlm
 
 from ..commands.command import Command
 
 
 class SiteReader(Process):
-    def __init__(self, args=None, site_data=None, settings=None, company_data=None):
+    def __init__(self, args=None, site_data=None, settings=None, company_data=None, saver_queue=None):
         super(SiteReader, self).__init__()
         self.site_data = site_data
         self.settings = settings
@@ -21,23 +23,36 @@ class SiteReader(Process):
         args["name"] = self.site_data["name"]
         self.base_command = Command(args)
         self.visited_urls = []
-        #self.log("Site reader for {} is initialized.".format(site_data["name"]))
-    
+        if "visited urls" in site_data.keys():
+            self.visited_urls = site_data["visited urls"]
+        self.saver_queue = saver_queue
+        if not saver_queue:
+            self.base_command.log("Warning! No saver queue given, data will not be saved.")
+        self.base_command.log("Initialized.")
+
     def run(self):
-        """ Main function. First it finds all the links in the base url, their links and 
-            recursively so on in the depth given in the settings. Then opens these urls and 
+        """ Main function. First it finds all the links in the base url, their links and
+            recursively so on in the depth given in the settings. Then opens these urls and
             searches for new articles about companies.
         """
-        # Get a list of urls by recursive following links from the base url.
-        urls = self.recursive_search([self.base_url], self.settings["search depth"])
-        # Filter out the urls that have been visited before.
-        nr_urls = len(urls)
-        urls = list(set(urls)- set(self.visited_urls))
-        self.visited_urls += urls
-        self.base_command.log("Search resulted in {} urls, of which {} are new".format(nr_urls, len(urls)))
-        # Find if the links mentions the companies considered.
-        new_articles = self.find_mentions(urls)
-        
+        while self.settings["loop"]:
+            # Get a list of urls by recursive following links from the base url.
+            urls = self.recursive_search([self.base_url], self.settings["search depth"])
+            # Filter out the urls that have been visited before.
+            nr_urls = len(urls)
+            urls = list(set(urls)- set(self.visited_urls))
+            self.visited_urls += urls
+            self.base_command.log("Search resulted in {} urls, of which {} are new".format(nr_urls, len(urls)))
+            # Find if the links mentions the companies considered.
+            new_articles = self.find_mentions(urls)
+            # Put the updated data in the saving queue, so that it will be saved in the next
+            # iteration or until later. See Saver in .support.saver for more information.
+            if self.saver_queue:
+                self.saver_queue.put({"post type":"scan",
+                                      "site":self.site_data["name"],
+                                      "company data":self.company_data,
+                                      "visited urls":self.visited_urls,
+                                      "new articles":new_articles})
 
     def recursive_search(self, urls, depth):
         """ Recursively find all links in the the pages found in urls. Returns a list of urls.
@@ -72,19 +87,26 @@ class SiteReader(Process):
     def find_mentions(self, urls):
         """ Given a list of urls, check if they mention any of the companies in the data base.
         """
-        new_articles = []
+        new_articles = 0
         for url in urls:
             try:
-                with urlopen(url) as response:
-                    soup = BeautifulSoup(response, 'html.parser')
-                    texts = soup.findAll(text=True)
-                    texts = [t.strip().lower() for t in filter(self.tag_visible, texts))]
-                    for word in texts:
-                        raise TODO
-                        # Match the words in the text with the companies in the data
-
-            except (HTTPError, URLError, UnicodeEncodeError):
+                response = requests.get(url)
+                doc = Document(response.text)
+                article = doc.title()
+                for company in self.company_data:
+                    if company["name"] in article:
+                        # The company name was found in the article, add the sighting to the data.
+                        time = datetime.now()
+                        sighting = {"datetime":"{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}"\
+                                    .format(time.year, time.month, time.day,
+                                            time.hour, time.minute, time.second),
+                                    "site": self.site_data["name"],
+                                    "url": url}
+                        new_articles += 1
+                        company["sightings"].append(sighting)
+            except (HTTPError, URLError, UnicodeEncodeError, requests.exceptions.InvalidSchema):
                 pass
+        return new_articles
 
     def tag_visible(self, element):
         if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
