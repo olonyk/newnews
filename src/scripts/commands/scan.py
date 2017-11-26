@@ -35,7 +35,7 @@ class Scan(Command):
         """
         try:
             # Start the saving process.
-            saver = Saver(args=self.args, parent=self)
+            saver = Saver(args=self.args)
             saver.start()
             # Start the site reader processes
             site_readers = []
@@ -43,8 +43,7 @@ class Scan(Command):
                 site_reader = SiteReader(args=self.args,
                                          site_data=site,
                                          settings=self.settings,
-                                         company_data=self.data["companies"],
-                                         saver_queue=saver.queue)
+                                         company_data=self.data["companies"])
                 site_reader.start()
                 site_readers.append(site_reader)
         except KeyboardInterrupt:

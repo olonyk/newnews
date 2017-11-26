@@ -1,17 +1,17 @@
 from ..commands.command import Command
 from multiprocessing import Process, Queue
 import json
+from pydispatch import dispatcher
 
 class Saver(Process):
     """ This is a queue driven process that reads incoming data in the queue and saves it in the
         according files.
     """
-    def __init__(self, args=None, parent=None):
+    def __init__(self, args=None):
         """ Params:
             args =  {"-l":bool                  # Log
                      "-v":bool                  # Verbose
                      "--data": string           # The path to the file where to save the scan data
-            parent:Scan                         # Parent process
         """
         super(Saver, self).__init__()
         if args: 
@@ -19,7 +19,7 @@ class Saver(Process):
         self.base_command = Command(args)
         self.queue = Queue()
         self.args = args
-        self.parent = parent
+        dispatcher.connect(self.handle_signal, signal="save_msg", sender=dispatcher.Any)
 
     def run(self):
         """ Main loop pf the saver, read the next data in the queue, parse it and save it in the
@@ -33,6 +33,11 @@ class Saver(Process):
                 break
             elif queue_post["post type"] == "scan":
                 self.save_scan(queue_post)
+
+    def handle_signal(self, sender):
+        """ Put a new message of the save_msg type in the saving queue.
+        """
+        self.queue.put(sender)
 
     def save_scan(self, queue_post):
         """ Save a scanning of a web site.
@@ -48,9 +53,9 @@ class Saver(Process):
                 break
         # Pass the information of how many new articles found to the scan class and trigger it to
         # print the current state.
-        if self.parent:
-            self.parent.new_articles += queue_post["new articles"]
-            self.parent.print_state()
+        #if self.parent:
+        #    self.parent.new_articles += queue_post["new articles"]
+        #    self.parent.print_state()
         # Save the updated data file.
         with open(self.args["--data"], 'w') as jsonfile:
             json.dump(file_data, jsonfile)

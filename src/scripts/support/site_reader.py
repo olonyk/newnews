@@ -1,20 +1,22 @@
+import time
 from datetime import datetime
 from multiprocessing import Process
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import urlopen
 
+import requests
 from bs4 import BeautifulSoup, SoupStrainer
 from bs4.element import Comment
 
-import requests
+from pydispatch import dispatcher
 from readability import Document  # Requires readability-lxmlm
 
 from ..commands.command import Command
 
 
 class SiteReader(Process):
-    def __init__(self, args=None, site_data=None, settings=None, company_data=None, saver_queue=None):
+    def __init__(self, args=None, site_data=None, settings=None, company_data=None):
         super(SiteReader, self).__init__()
         self.site_data = site_data
         self.settings = settings
@@ -25,9 +27,6 @@ class SiteReader(Process):
         self.visited_urls = []
         if "visited urls" in site_data.keys():
             self.visited_urls = site_data["visited urls"]
-        self.saver_queue = saver_queue
-        if not saver_queue:
-            self.base_command.log("Warning! No saver queue given, data will not be saved.")
         self.base_command.log("Initialized.")
 
     def run(self):
@@ -47,12 +46,12 @@ class SiteReader(Process):
             new_articles = self.find_mentions(urls)
             # Put the updated data in the saving queue, so that it will be saved in the next
             # iteration or until later. See Saver in .support.saver for more information.
-            if self.saver_queue:
-                self.saver_queue.put({"post type":"scan",
-                                      "site":self.site_data["name"],
-                                      "company data":self.company_data,
-                                      "visited urls":self.visited_urls,
-                                      "new articles":new_articles})
+            dispatcher.send(signal="save_msg", sender={"post type":"scan",
+                                                       "site":self.site_data["name"],
+                                                       "company data":self.company_data,
+                                                       "visited urls":self.visited_urls,
+                                                       "new articles":new_articles})
+            time.sleep(self.settings["loop interval sec"])
 
     def recursive_search(self, urls, depth):
         """ Recursively find all links in the the pages found in urls. Returns a list of urls.
