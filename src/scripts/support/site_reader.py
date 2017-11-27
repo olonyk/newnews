@@ -34,7 +34,10 @@ class SiteReader(Process):
             recursively so on in the depth given in the settings. Then opens these urls and
             searches for new articles about companies.
         """
+        iterator = 0
         while self.settings["loop"]:
+            iterator += 1
+            self.base_command.log("Begining iteration {}".format(iterator))
             # Get a list of urls by recursive following links from the base url.
             urls = self.recursive_search([self.base_url], self.settings["search depth"])
             # Filter out the urls that have been visited before.
@@ -59,6 +62,7 @@ class SiteReader(Process):
         if depth == 0:
             return []
         new_urls = []
+        self.base_command.log("Rec depth {}, nr urls {}".format(depth, len(urls)))
         for url in urls:
             if not url.startswith("http"):
                 url = urljoin(self.base_url, url)
