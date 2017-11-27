@@ -2,6 +2,7 @@
 readability-lxml
 (pip3 install readability-lxml)
 docopt
+pip3 install PyDispatcher
 
 ### TODO
 + Add more sites to default data.
