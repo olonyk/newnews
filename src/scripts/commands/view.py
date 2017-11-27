@@ -5,10 +5,6 @@ from collections import Counter
 from datetime import datetime
 from tkinter import ttk
 from tkinter import Tk, IntVar, S, N, E, W, HORIZONTAL
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
-                                               NavigationToolbar2TkAgg)
-from matplotlib.figure import Figure
 from pkg_resources import resource_filename
 
 from .command import Command
@@ -42,7 +38,12 @@ class View(Command):
         if plot_companies:
             main_root=tk.Tk()
             ViewFrame(master=main_root, company_data=plot_companies).pack(side="top", fill="both", expand=True)
-            main_root.mainloop()
+            while True:
+                try:
+                    main_root.mainloop()
+                    break
+                except UnicodeDecodeError:
+                    pass
         else:
             self.log("No data to view.")
 

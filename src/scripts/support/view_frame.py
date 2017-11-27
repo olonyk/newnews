@@ -6,6 +6,8 @@ from tkinter import ttk
 from tkinter.ttk import Frame, Radiobutton, Label, Scrollbar, Button, OptionMenu, Entry
 from tkinter import Spinbox, IntVar
 from tkinter import *
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2TkAgg)
@@ -54,7 +56,6 @@ class ViewFrame(tk.Frame):
 
     def onFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''
-        print("onFrameConfigure")
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.layout()
 
@@ -72,7 +73,7 @@ class ViewFrame(tk.Frame):
         x, y = zip(*dates)
         fig = plt.figure(figsize=(5, 5), dpi=100)
         axis = fig.add_subplot(111)
-        axis.bar(x, y)
+        axis.bar(x, y, color='green')
         axis.set_facecolor((0, 0, 0))
         fig.autofmt_xdate()
         axis.spines['top'].set_color('green')
@@ -88,7 +89,7 @@ class ViewFrame(tk.Frame):
         fig.canvas.toolbar.pack_forget()
         axis.set_clip_on(False)
         # Populate the tkinter frame
-        label = tk.Label(p_frame, text=company_data["name"], font=("Verdana", 12), background="#000000", foreground="#00ff00")
+        label = tk.Label(p_frame, text=company_data["name"], font=("Monaco", 24), background="#000000", foreground="#00ff00")
         label.pack(pady=10,padx=10)
         canvas = FigureCanvasTkAgg(fig, p_frame)
         canvas.show()
