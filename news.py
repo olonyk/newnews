@@ -8,7 +8,7 @@
 from docopt import docopt
 from src.scripts.commands.scan import Scan
 from src.scripts.commands.test import Test
-from src.scripts.commands.view import View
+#from src.scripts.commands.view import View
 
 if __name__ == "__main__":
     args = docopt(__doc__)
