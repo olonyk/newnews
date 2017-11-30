@@ -3,12 +3,16 @@ import random
 import tkinter as tk
 from collections import Counter
 from datetime import datetime
-from tkinter import ttk
-from tkinter import Tk, IntVar, S, N, E, W, HORIZONTAL
+from tkinter import HORIZONTAL, E, IntVar, N, S, Tk, W, ttk
+
 from pkg_resources import resource_filename
 
-from .command import Command
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pubnub import PubNub
+
 from ..support.view_frame import ViewFrame
+from .command import Command
+from ..support.pubnub_listener import PubNubListener
 
 class View(Command):
     def __init__(self, args):
@@ -25,6 +29,21 @@ class View(Command):
         self.data = json.loads(self.read_file(args["--data"]))
 
         self.args = args
+        
+        self.signal = "save_msg"
+ 
+        pnconfig = PNConfiguration()
+        pnconfig.subscribe_key = "my_subkey"
+        pnconfig.publish_key = "my_pubkey"
+        pnconfig.ssl = False
+        self.pubnub = PubNub(pnconfig)
+        self.pubnub.add_listener(PubNubListener())
+        self.pubnub.subscribe().channels('my_channel').execute()
+
+        self.log("Initialized")
+
+    def _callback(self, message, channel):
+        self.log("A message: '{}' was recieved in channel: {}".format(message, channel))
 
     def run(self):
         # Create a list of plot frames in the format: [(string, frame), (string, frame), ...]
