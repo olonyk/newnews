@@ -1,7 +1,12 @@
-from ..commands.command import Command
-from multiprocessing import Process, Queue
 import json
-from pydispatch import dispatcher
+from multiprocessing import Process, Queue
+
+from pubnub.enums import PNStatusCategory
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pubnub import PubNub, SubscribeListener
+
+from ..commands.command import Command
+
 
 class Saver(Process):
     """ This is a queue driven process that reads incoming data in the queue and saves it in the
@@ -19,7 +24,15 @@ class Saver(Process):
         self.base_command = Command(args)
         self.queue = Queue()
         self.args = args
-        dispatcher.connect(self.handle_signal, signal="save_msg", sender=dispatcher.Any)
+
+        pnconfig = PNConfiguration()
+        pnconfig.publish_key = 'demo'
+        pnconfig.subscribe_key = 'demo'
+        pubnub = PubNub(pnconfig)
+        self.my_listener = SubscribeListener()
+        pubnub.add_listener(self.my_listener)
+        pubnub.subscribe().channels('save_msg').execute()
+        self.my_listener.wait_for_connect()
 
     def run(self):
         """ Main loop pf the saver, read the next data in the queue, parse it and save it in the
@@ -27,17 +40,14 @@ class Saver(Process):
             action that should be taken.
         """
         while True:
-            queue_post = self.queue.get()
-            if queue_post["post type"] == "quit":
+            post = self.my_listener.wait_for_message_on('awesomeChannel').message
+            if post["post type"] == "quit":
                 self.base_command.log("Terminating")
                 break
-            elif queue_post["post type"] == "scan":
-                self.save_scan(queue_post)
-
-    def handle_signal(self, sender):
-        """ Put a new message of the save_msg type in the saving queue.
-        """
-        self.queue.put(sender)
+            elif post["post type"] == "scan":
+                print("=========<________>=========")
+                print(post)
+                self.save_scan(post)
 
     def save_scan(self, queue_post):
         """ Save a scanning of a web site.
@@ -49,7 +59,7 @@ class Saver(Process):
         # Find the site that the site reader crawled and add to the visided url post.
         for site in file_data["sites"]:
             if queue_post["site"] == site["name"]:
-                site["visited urls"] = queue_post["visited urls"]
+                site["visited urls"] = site["visited urls"] + queue_post["visited urls"]
                 break
         # Pass the information of how many new articles found to the scan class and trigger it to
         # print the current state.

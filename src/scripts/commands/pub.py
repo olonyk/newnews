@@ -1,17 +1,26 @@
+from pubnub.enums import PNStatusCategory
 from pubnub.pnconfiguration import PNConfiguration
-from pubnub.pubnub import PubNub
-
-def publish_callback(result, status):
-    print(result)
-    print(status)
-    # Handle PNPublishResult and PNStatus
-
+from pubnub.pubnub import PubNub, SubscribeListener
+ 
 pnconfig = PNConfiguration()
-
-pnconfig.subscribe_key = 'sub-c-ec413276-b805-11e6-b737-xxxxx'
-pnconfig.publish_key = 'pub-c-528502df-76a6-4f07-8636-xxxxx'
-
+ 
+pnconfig.publish_key = 'demo'
+pnconfig.subscribe_key = 'demo'
+ 
 pubnub = PubNub(pnconfig)
-
-pubnub.publish().channel("awesomeChannel").message("hello!!").async(publish_callback)
-
+ 
+my_listener = SubscribeListener()
+pubnub.add_listener(my_listener)
+ 
+pubnub.subscribe().channels('awesomeChannel').execute()
+my_listener.wait_for_connect()
+print('connected')
+ 
+pubnub.publish().channel('awesomeChannel').message({'fieldA': 'awesome', 'fieldB': 10}).sync()
+result = my_listener.wait_for_message_on('awesomeChannel')
+print(result.message)
+ 
+pubnub.unsubscribe().channels('awesomeChannel').execute()
+my_listener.wait_for_disconnect()
+ 
+print('unsubscribed')

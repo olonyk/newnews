@@ -5,11 +5,13 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import urlopen
 
-import requests
 from bs4 import BeautifulSoup, SoupStrainer
 from bs4.element import Comment
 
-from pydispatch import dispatcher
+import requests
+from pubnub.enums import PNStatusCategory
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pubnub import PubNub, SubscribeListener
 from readability import Document  # Requires readability-lxmlm
 
 from ..commands.command import Command
@@ -27,7 +29,17 @@ class SiteReader(Process):
         self.visited_urls = []
         if "visited urls" in site_data.keys():
             self.visited_urls = site_data["visited urls"]
+
+        # Initialize the publish/subscribe object
+        pnconfig = PNConfiguration()
+        pnconfig.publish_key = 'demo'
+        pnconfig.subscribe_key = 'demo'
+        self.pubnub = PubNub(pnconfig)
+        my_listener = SubscribeListener()
+        self.pubnub.add_listener(my_listener)
+
         self.base_command.log("Initialized.")
+        
 
     def run(self):
         """ Main function. First it finds all the links in the base url, their links and
@@ -49,11 +61,11 @@ class SiteReader(Process):
             new_articles = self.find_mentions(urls)
             # Put the updated data in the saving queue, so that it will be saved in the next
             # iteration or until later. See Saver in .support.saver for more information.
-            dispatcher.send(signal="save_msg", sender={"post type":"scan",
-                                                       "site":self.site_data["name"],
-                                                       "company data":self.company_data,
-                                                       "visited urls":self.visited_urls,
-                                                       "new articles":new_articles})
+            self.pubnub.publish().channel('save_msg').message({"post type":"scan",
+                                                               "site":self.site_data["name"],
+                                                               "company data":self.company_data,
+                                                               #"visited urls":urls,
+                                                               "new articles":new_articles}).sync()
             time.sleep(self.settings["loop interval sec"])
 
     def recursive_search(self, urls, depth):
