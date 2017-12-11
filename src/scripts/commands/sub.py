@@ -1,31 +1,24 @@
-from pubnub.enums import PNStatusCategory
-from pubnub.pnconfiguration import PNConfiguration
-from pubnub.pubnub import PubNub, SubscribeListener
- 
-pnconfig = PNConfiguration()
- 
-pnconfig.publish_key = 'demo'
-pnconfig.subscribe_key = 'demo'
- 
-pubnub = PubNub(pnconfig)
- 
-my_listener = SubscribeListener()
-pubnub.add_listener(my_listener)
- 
-pubnub.subscribe().channels('awesomeChannel').execute()
-pubnub.subscribe().channels('awesomeChannel2').execute()
+import pika
 
-my_listener.wait_for_connect()
-print('connected')
+connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+channel = connection.channel()
 
-while True:
-    result = my_listener.wait_for_message_on('awesomeChannel')
-    print("subscription: {}".format(result.subscription))
-    print("channel:      {}".format(result.channel))
-    print("message:      {}".format(result.message))
-    break
- 
-pubnub.unsubscribe().channels('awesomeChannel').execute()
-my_listener.wait_for_disconnect()
- 
-print('unsubscribed')
+channel.exchange_declare(exchange='logs',
+                         exchange_type='fanout')
+
+result = channel.queue_declare(exclusive=True)
+queue_name = result.method.queue
+
+channel.queue_bind(exchange='logs',
+                   queue=queue_name)
+
+print(' [*] Waiting for logs. To exit press CTRL+C')
+
+def callback(ch, method, properties, body):
+    print(" [x] %r" % body)
+
+channel.basic_consume(callback,
+                      queue=queue_name,
+                      no_ack=True)
+
+channel.start_consuming()

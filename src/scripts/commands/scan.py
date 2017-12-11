@@ -33,26 +33,18 @@ class Scan(Command):
         """ This is the entry point of the Scan command. First initialize the saving process and a
             site reader process for each site in the data.
         """
-        try:
-            # Start the saving process.
-            saver = Saver(args=self.args)
-            saver.start()
-            # Start the site reader processes
-            site_readers = []
-            for site in self.data["sites"]:
-                site_reader = SiteReader(args=self.args,
-                                         site_data=site,
-                                         settings=self.settings,
-                                         company_data=self.data["companies"])
-                site_reader.start()
-                site_readers.append(site_reader)
-        except KeyboardInterrupt:
-            for site_reader in site_readers:
-                site_reader.terminate()
-                site_reader.join()
-            saver.queue.put({"post type":"quit"})
-            saver.join()
-            sys.exit(1)
+        # Start the saving process.
+        saver = Saver(args=self.args)
+        saver.start()
+        # Start the site reader processes
+        site_readers = []
+        for site in self.data["sites"]:
+            site_reader = SiteReader(args=self.args,
+                                     site_data=site,
+                                     settings=self.settings,
+                                     company_data=self.data["companies"])
+            site_reader.start()
+            site_readers.append(site_reader)
 
     def print_state(self):
         running_time = (datetime.now()-self.start_time)

@@ -7,12 +7,11 @@ from tkinter import HORIZONTAL, E, IntVar, N, S, Tk, W, ttk
 
 from pkg_resources import resource_filename
 
-from pubnub.pnconfiguration import PNConfiguration
-from pubnub.pubnub import PubNub
-
+import pika
+import threading
 from ..support.view_frame import ViewFrame
 from .command import Command
-from ..support.pubnub_listener import PubNubListener
+
 
 class View(Command):
     def __init__(self, args):
@@ -28,24 +27,31 @@ class View(Command):
             args["--data"] = resource_filename("src.data", "default_scan_data.json")
         self.data = json.loads(self.read_file(args["--data"]))
 
-        self.args = args
-        
-        self.signal = "save_msg"
- 
-        pnconfig = PNConfiguration()
-        pnconfig.subscribe_key = "my_subkey"
-        pnconfig.publish_key = "my_pubkey"
-        pnconfig.ssl = False
-        self.pubnub = PubNub(pnconfig)
-        self.pubnub.add_listener(PubNubListener())
-        self.pubnub.subscribe().channels('my_channel').execute()
+        self.view_frame = None
 
+        # Establish connection to the network, subscrib to log messages.
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+        self.channel = connection.channel()
+        self.channel.exchange_declare(exchange='logs',
+                                exchange_type='fanout')
+        result = self.channel.queue_declare(exclusive=True)
+        queue_name = result.method.queue
+
+        self.channel.queue_bind(exchange='logs',
+                        queue=queue_name)
+        self.channel.basic_consume(self._callback,
+                              queue=queue_name,
+                              no_ack=True)
         self.log("Initialized")
 
-    def _callback(self, message, channel):
-        self.log("A message: '{}' was recieved in channel: {}".format(message, channel))
+    def _callback(self, _, method, properties, body):
+        if self.view_frame:
+            self.view_frame.text_prompt.insert("{}\n".format(tk.INSERT,body.decode('utf8')))
 
+        
     def run(self):
+        mq_recieve_thread = threading.Thread(target=self.channel.start_consuming)
+        mq_recieve_thread.start()
         # Create a list of plot frames in the format: [(string, frame), (string, frame), ...]
         plot_companies = []
         # Iterate through the list of companies.
@@ -56,7 +62,8 @@ class View(Command):
                     plot_companies.append(company)
         if plot_companies:
             main_root=tk.Tk()
-            ViewFrame(master=main_root, company_data=plot_companies).pack(side="top", fill="both", expand=True)
+            self.view_frame = ViewFrame(master=main_root, company_data=plot_companies)
+            self.view_frame.pack()
             while True:
                 try:
                     main_root.mainloop()

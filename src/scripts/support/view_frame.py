@@ -2,7 +2,7 @@
 import tkinter as tk
 from collections import Counter
 from datetime import datetime
-from tkinter import ttk
+from tkinter import ttk, scrolledtext
 from tkinter.ttk import Frame, Radiobutton, Label, Scrollbar, Button, OptionMenu, Entry
 from tkinter import Spinbox, IntVar
 from tkinter import *
@@ -17,38 +17,72 @@ class ViewFrame(tk.Frame):
     def __init__(self, master=None, company_data=None):
         self.master = master
         self.master.title("View frame")
-        tk.Frame.__init__(self, master)
+        tk.Frame.__init__(self, master, background="#0000ff")
 
-        # Disable toolbar
-        #mpl.rcParams['toolbar'] = 'None'
+        text_frame = tk.Frame(master, background="#000000")
+        graph_frame = tk.Frame(master, background="#000000")
         
-        self.canvas = tk.Canvas(master, borderwidth=0, background="#000000")
-        self.frame = tk.Frame(self.canvas, background="#000000")
-        self.vsb = tk.Scrollbar(master, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.vsb.set)
+        self.text_prompt = self.create_text_widget(text_frame)
 
-        self.vsb.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.canvas.create_window((4,4), window=self.frame, anchor="nw", 
-                                  tags="self.frame")
+        (scrolled_frame, self.scrolled_canvas) = self.create_graph_widget(graph_frame)
 
-        self.frame.bind("<Configure>", self.onFrameConfigure)
-        self.canvas.bind("<Configure>", self.onFrameConfigure)
+        
         self.plot_frames = []
-        self.populate(company_data)
+        self.populate(company_data, scrolled_frame)
         self.layout()
 
-    def populate(self, company_data):
+        text_frame.pack(side=tk.TOP, fill="x", expand=False)
+        graph_frame.pack(side=tk.BOTTOM, fill="both", expand=True)
+
+    def create_graph_widget(self, parent):
+        canvas = tk.Canvas(parent, borderwidth=0, background="#000000")
+        frame = tk.Frame(canvas, background="#000000")
+        vsb = tk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+
+        vsb.pack(side="right", fill="y", expand=0)
+        canvas.pack(side="left", fill="both", expand=1)
+        canvas.create_window((4,4), window=frame, anchor="nw", 
+                                  tags="frame")
+
+        frame.bind("<Configure>", self.onFrameConfigure)
+        canvas.bind("<Configure>", self.onFrameConfigure)
+        return frame, canvas
+
+
+    def create_text_widget(self, parent):
+        editArea = scrolledtext.ScrolledText(master=parent,
+                                             wrap=tk.WORD,
+                                             width=20,
+                                             height=10,
+                                             background="#000000",
+                                             foreground="#00ff00")
+        editArea.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        return editArea
+        # Adding some text, to see if scroll is working as we expect it
+        editArea
+        """\
+        Integer posuere erat a ante venenatis dapibus.
+        Posuere velit aliquet.
+        Aenean eu leo quam. Pellentesque ornare sem.
+        Lacinia quam venenatis vestibulum.
+        Nulla vitae elit libero, a pharetra augue.
+        Cum sociis natoque penatibus et magnis dis.
+        Parturient montes, nascetur ridiculus mus.
+        """)
+                
+
+    def populate(self, company_data, scrolled_frame):
         self.plot_frames = []
         for i, company in enumerate(company_data):
-            p_frame = self.build_plot_frame(self.frame, company)
+            p_frame = self.build_plot_frame(scrolled_frame, company)
             self.plot_frames.append(p_frame)
     
     def layout(self):
         if self.plot_frames:
             for widget in self.plot_frames:
                 widget.grid_remove()
-            items_per_row = int(self.canvas.winfo_width() / self.plot_frames[0].winfo_width())
+            items_per_row = int(self.scrolled_canvas.winfo_width() / self.plot_frames[0].winfo_width())
             if items_per_row < 1:
                 items_per_row = 1
             for i, widget in enumerate(self.plot_frames):
@@ -56,7 +90,7 @@ class ViewFrame(tk.Frame):
 
     def onFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.scrolled_canvas.configure(scrollregion=self.scrolled_canvas.bbox("all"))
         self.layout()
 
     def build_plot_frame(self, parent_container, company_data):

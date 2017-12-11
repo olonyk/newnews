@@ -9,8 +9,6 @@
 from docopt import docopt
 from src.scripts.commands.scan import Scan
 from src.scripts.commands.view import View
-#from src.scripts.commands.test import Test
-from src.scripts.commands.test import Sender
 
 if __name__ == "__main__":
     args = docopt(__doc__)
@@ -21,8 +19,5 @@ if __name__ == "__main__":
     elif args["view"]:
         args["name"] = "View"
         COMMAND = View(args)
-    elif args["send"]:
-        args["name"] = "Sender module"
-        COMMAND = Sender(args)
     if COMMAND:
         COMMAND.run()

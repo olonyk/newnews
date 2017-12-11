@@ -1,3 +1,4 @@
+import json
 import time
 from datetime import datetime
 from multiprocessing import Process
@@ -8,6 +9,7 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup, SoupStrainer
 from bs4.element import Comment
 
+import pika
 import requests
 from pubnub.enums import PNStatusCategory
 from pubnub.pnconfiguration import PNConfiguration
@@ -31,12 +33,10 @@ class SiteReader(Process):
             self.visited_urls = site_data["visited urls"]
 
         # Initialize the publish/subscribe object
-        pnconfig = PNConfiguration()
-        pnconfig.publish_key = 'demo'
-        pnconfig.subscribe_key = 'demo'
-        self.pubnub = PubNub(pnconfig)
-        my_listener = SubscribeListener()
-        self.pubnub.add_listener(my_listener)
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+        self.channel = self.connection.channel()
+        self.channel.exchange_declare(exchange='saves',
+                                      exchange_type='fanout')
 
         self.base_command.log("Initialized.")
         
@@ -61,12 +61,27 @@ class SiteReader(Process):
             new_articles = self.find_mentions(urls)
             # Put the updated data in the saving queue, so that it will be saved in the next
             # iteration or until later. See Saver in .support.saver for more information.
-            self.pubnub.publish().channel('save_msg').message({"post type":"scan",
-                                                               "site":self.site_data["name"],
-                                                               "company data":self.company_data,
-                                                               #"visited urls":urls,
-                                                               "new articles":new_articles}).sync()
+            message = {"post type":"scan",
+                       "site":self.site_data["name"],
+                       "company data":self.company_data,
+                       "visited urls":urls,
+                       "new articles":new_articles}
+            message = json.dumps(message, ensure_ascii=False)
+            try:
+                self.channel.basic_publish(exchange='saves',
+                                           routing_key='',
+                                           body=message)
+            # Except Connection Closed, try to reconnect and reiterate.
+            except pika.exceptions.ConnectionClosed:
+                self.base_command.log("Warning! Connection lost, trying to reconnect...")
+                self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+                self.channel = self.connection.channel()
+                self.channel.exchange_declare(exchange='saves',
+                                              exchange_type='fanout')
+                self.base_command.log("Connection reestablished")
+                
             time.sleep(self.settings["loop interval sec"])
+        self.connection.close()
 
     def recursive_search(self, urls, depth):
         """ Recursively find all links in the the pages found in urls. Returns a list of urls.
@@ -74,7 +89,6 @@ class SiteReader(Process):
         if depth == 0:
             return []
         new_urls = []
-        self.base_command.log("Rec depth {}, nr urls {}".format(depth, len(urls)))
         for url in urls:
             if not url.startswith("http"):
                 url = urljoin(self.base_url, url)

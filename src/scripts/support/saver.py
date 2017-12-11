@@ -1,9 +1,7 @@
 import json
 from multiprocessing import Process, Queue
 
-from pubnub.enums import PNStatusCategory
-from pubnub.pnconfiguration import PNConfiguration
-from pubnub.pubnub import PubNub, SubscribeListener
+import pika
 
 from ..commands.command import Command
 
@@ -25,29 +23,35 @@ class Saver(Process):
         self.queue = Queue()
         self.args = args
 
-        pnconfig = PNConfiguration()
-        pnconfig.publish_key = 'demo'
-        pnconfig.subscribe_key = 'demo'
-        pubnub = PubNub(pnconfig)
-        self.my_listener = SubscribeListener()
-        pubnub.add_listener(self.my_listener)
-        pubnub.subscribe().channels('save_msg').execute()
-        self.my_listener.wait_for_connect()
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+        self.channel = connection.channel()
+        self.channel.exchange_declare(exchange='saves',
+                                exchange_type='fanout')
+        result = self.channel.queue_declare(exclusive=True)
+        queue_name = result.method.queue
+
+        self.channel.queue_bind(exchange='saves',
+                        queue=queue_name)
+        self.channel.basic_consume(self.callback,
+                              queue=queue_name,
+                              no_ack=True)
+        
 
     def run(self):
         """ Main loop pf the saver, read the next data in the queue, parse it and save it in the
             correct files. In the queue post there must be a "post type" key that determines which
             action that should be taken.
         """
-        while True:
-            post = self.my_listener.wait_for_message_on('awesomeChannel').message
-            if post["post type"] == "quit":
-                self.base_command.log("Terminating")
-                break
-            elif post["post type"] == "scan":
-                print("=========<________>=========")
-                print(post)
-                self.save_scan(post)
+        self.channel.start_consuming()
+
+    def callback(self, _, method, properties, body):
+        post = json.loads(body.decode('utf8'))
+        if post["post type"] == "quit":
+            self.base_command.log("Terminating")
+            self.channel.stop_consuming()
+        elif post["post type"] == "scan":
+            self.base_command.log("Writing data from {}".format(post["site"]))
+            self.save_scan(post)
 
     def save_scan(self, queue_post):
         """ Save a scanning of a web site.
@@ -68,4 +72,5 @@ class Saver(Process):
         #    self.parent.print_state()
         # Save the updated data file.
         with open(self.args["--data"], 'w') as jsonfile:
+            #data = json.dumps(file_data, indent=4, sort_keys=True)
             json.dump(file_data, jsonfile)
