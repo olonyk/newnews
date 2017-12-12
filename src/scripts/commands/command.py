@@ -13,7 +13,7 @@ class Command(object):
 
     def log(self, message):
         time = datetime.now()
-        time_stamp = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:4}\t{:11}\t".format(\
+        time_stamp = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:4}    {:15}    ".format(\
                       time.year, time.month, time.day, time.hour, time.minute, time.second,\
                       str(time.microsecond)[:3], self.name)
         message = "{}{}".format(time_stamp, message)
