@@ -46,7 +46,7 @@ class View(Command):
 
     def _callback(self, _, method, properties, body):
         if self.view_frame:
-            self.view_frame.text_prompt.insert("{}\n".format(tk.INSERT,body.decode('utf8')))
+            self.view_frame.text_prompt.insert(tk.INSERT, "{}\n".format(body.decode('utf8')))
 
         
     def run(self):
